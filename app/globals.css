@@ -3,25 +3,41 @@
 @tailwind utilities;
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --background: #faf9f7;
+  --foreground: #1a1a1a;
+  --muted: #8a8a8a;
+  --border: #e8e6e3;
+  --surface: #ffffff;
 }
 
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
 }
 
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
-  }
+/* Goal health animations */
+@keyframes shimmer {
+  0% { opacity: 1; }
+  50% { opacity: 0.85; }
+  100% { opacity: 1; }
+}
+
+@keyframes pulse-gentle {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.7; }
+}
+
+.health-thriving {
+  animation: shimmer 3s ease-in-out infinite;
+}
+
+.health-fading {
+  opacity: 0.5;
+  filter: saturate(0.3);
+}
+
+.health-blinking {
+  filter: saturate(0);
+  animation: pulse-gentle 2.5s ease-in-out infinite;
 }
