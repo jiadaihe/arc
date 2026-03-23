@@ -8,9 +8,10 @@ interface GoalCardProps {
   goal: GoalWithHealth;
   checkins: ChallengeCheckin[];
   onCheckIn?: () => void;
+  onDelete?: () => void;
 }
 
-export default function GoalCard({ goal, checkins, onCheckIn }: GoalCardProps) {
+export default function GoalCard({ goal, checkins, onCheckIn, onDelete }: GoalCardProps) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const start = new Date(goal.startDate);
@@ -30,7 +31,7 @@ export default function GoalCard({ goal, checkins, onCheckIn }: GoalCardProps) {
 
   return (
     <div
-      className={`rounded-xl p-4 bg-[var(--surface)] border border-[var(--border)] ${healthClass}`}
+      className={`group/card rounded-xl p-4 bg-[var(--surface)] border border-[var(--border)] ${healthClass}`}
     >
       {/* Header */}
       <div className="flex items-start gap-3 mb-3">
@@ -44,6 +45,17 @@ export default function GoalCard({ goal, checkins, onCheckIn }: GoalCardProps) {
             {remaining} days remaining
           </p>
         </div>
+        {onDelete && (
+          <button
+            onClick={onDelete}
+            className="p-1 rounded-lg hover:bg-black/[.06] text-[var(--muted)] opacity-0 group-hover/card:opacity-100 transition-opacity shrink-0"
+            title="Archive goal"
+          >
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <path d="M4 4l8 8M12 4l-8 8" strokeLinecap="round" />
+            </svg>
+          </button>
+        )}
       </div>
 
       {/* Progress bar */}

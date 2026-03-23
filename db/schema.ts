@@ -1,7 +1,11 @@
 import { sqliteTable, text, integer, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { user } from "@/lib/auth-schema";
 
 export const goals = sqliteTable("goals", {
   id: text("id").primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
   title: text("title").notNull(),
   color: text("color").notNull(),
   type: text("type", { enum: ["milestone", "challenge"] }).notNull(),
@@ -22,6 +26,9 @@ export const goals = sqliteTable("goals", {
 
 export const items = sqliteTable("items", {
   id: text("id").primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
   title: text("title").notNull(),
   date: text("date").notNull(),
   startTime: text("start_time"),
@@ -35,6 +42,9 @@ export const challengeCheckins = sqliteTable(
   "challenge_checkins",
   {
     id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
     goalId: text("goal_id")
       .notNull()
       .references(() => goals.id),

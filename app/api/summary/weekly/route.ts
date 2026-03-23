@@ -3,8 +3,11 @@ import { startOfWeek, endOfWeek, format } from "date-fns";
 import * as itemsRepo from "@/db/repositories/items";
 import * as goalsRepo from "@/db/repositories/goals";
 import * as checkinsRepo from "@/db/repositories/checkins";
+import { requireSession } from "@/lib/auth-session";
 
 export async function GET(request: Request) {
+  const session = await requireSession();
+  const userId = session.user.id;
   const { searchParams } = new URL(request.url);
   const dateParam = searchParams.get("date");
   const now = dateParam ? new Date(dateParam + "T00:00:00") : new Date();
@@ -14,15 +17,18 @@ export async function GET(request: Request) {
   const startStr = format(weekStart, "yyyy-MM-dd");
   const endStr = format(weekEnd, "yyyy-MM-dd");
 
-  const items = itemsRepo.getItemsByDateRange(startStr, endStr);
-  const activeGoals = goalsRepo.getAllActiveGoals();
+  const items = itemsRepo.getItemsByDateRange(startStr, endStr, userId);
+  const activeGoals = goalsRepo.getAllActiveGoals(userId);
 
-  const goalActivity: Record<string, { title: string; color: string; itemCount: number; checkinCount: number }> = {};
+  const goalActivity: Record<
+    string,
+    { title: string; color: string; itemCount: number; checkinCount: number }
+  > = {};
 
   for (const goal of activeGoals) {
-    const checkins = checkinsRepo.getCheckinsByGoalId(goal.id).filter(
-      (c) => c.date >= startStr && c.date <= endStr
-    );
+    const checkins = checkinsRepo
+      .getCheckinsByGoalId(goal.id, userId)
+      .filter((c) => c.date >= startStr && c.date <= endStr);
     goalActivity[goal.id] = {
       title: goal.title,
       color: goal.color,

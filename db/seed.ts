@@ -2,7 +2,15 @@ import { db } from "./index";
 import { goals, items, challengeCheckins } from "./schema";
 import { randomUUID } from "crypto";
 
-// Clear existing data
+// Seed requires a userId argument: npx tsx db/seed.ts <userId>
+const userId = process.argv[2];
+if (!userId) {
+  console.error("Usage: npx tsx db/seed.ts <userId>");
+  console.error("Sign up first, then pass your user ID.");
+  process.exit(1);
+}
+
+// Clear existing data for this user
 db.delete(challengeCheckins).run();
 db.delete(items).run();
 db.delete(goals).run();
@@ -35,6 +43,7 @@ const goalIds = {
 const seedGoals = [
   {
     id: goalIds.fitness,
+    userId,
     title: "Run a half marathon",
     color: "#E07A5F",
     type: "milestone" as const,
@@ -48,6 +57,7 @@ const seedGoals = [
   },
   {
     id: goalIds.reading,
+    userId,
     title: "Read 20 books this year",
     color: "#3D85C6",
     type: "milestone" as const,
@@ -61,6 +71,7 @@ const seedGoals = [
   },
   {
     id: goalIds.spanish,
+    userId,
     title: "30-day Spanish streak",
     color: "#81B29A",
     type: "challenge" as const,
@@ -74,6 +85,7 @@ const seedGoals = [
   },
   {
     id: goalIds.portfolio,
+    userId,
     title: "Launch portfolio site",
     color: "#F2CC8F",
     type: "milestone" as const,
@@ -118,6 +130,7 @@ const seedItems = [
 for (const item of seedItems) {
   db.insert(items).values({
     id: randomUUID(),
+    userId,
     title: item.title,
     date: item.date,
     startTime: item.startTime,
@@ -133,10 +146,11 @@ for (const item of seedItems) {
 for (let i = 0; i < 12; i++) {
   db.insert(challengeCheckins).values({
     id: randomUUID(),
+    userId,
     goalId: goalIds.spanish,
     date: daysAgo(i),
     createdAt: iso(),
   }).run();
 }
 
-console.log("Seeded: 4 goals, %d items, 12 check-ins", seedItems.length);
+console.log("Seeded: 4 goals, %d items, 12 check-ins for user %s", seedItems.length, userId);

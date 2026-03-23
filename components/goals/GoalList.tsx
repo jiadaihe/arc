@@ -2,7 +2,9 @@
 
 import { useEffect, useState, useCallback, useImperativeHandle, forwardRef } from "react";
 import type { GoalWithHealth, ChallengeCheckin } from "@/lib/types";
+import { MAX_ACTIVE_GOALS } from "@/lib/constants";
 import GoalCard from "./GoalCard";
+import GoalForm from "./GoalForm";
 
 interface GoalListProps {
   onGoalChange?: () => void;
@@ -15,6 +17,7 @@ export interface GoalListHandle {
 const GoalList = forwardRef<GoalListHandle, GoalListProps>(function GoalList({ onGoalChange }, ref) {
   const [goals, setGoals] = useState<GoalWithHealth[]>([]);
   const [checkins, setCheckins] = useState<Record<string, ChallengeCheckin[]>>({});
+  const [showForm, setShowForm] = useState(false);
 
   const fetchGoals = useCallback(async () => {
     const res = await fetch("/api/goals");
@@ -49,11 +52,37 @@ const GoalList = forwardRef<GoalListHandle, GoalListProps>(function GoalList({ o
     onGoalChange?.();
   };
 
+  const handleDelete = async (goalId: string) => {
+    await fetch(`/api/goals/${goalId}`, { method: "DELETE" });
+    fetchGoals();
+    onGoalChange?.();
+  };
+
+  const handleCreated = () => {
+    fetchGoals();
+    onGoalChange?.();
+  };
+
+  const atLimit = goals.length >= MAX_ACTIVE_GOALS;
+
   return (
     <div className="p-4 space-y-3">
-      <h2 className="text-xs font-semibold uppercase tracking-wider text-[var(--muted)] mb-2">
-        Goals
-      </h2>
+      <div className="flex items-center justify-between mb-2">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-[var(--muted)]">
+          Goals
+        </h2>
+        <button
+          onClick={() => setShowForm(true)}
+          disabled={atLimit}
+          className="w-6 h-6 flex items-center justify-center rounded-lg text-[var(--muted)] hover:bg-black/[.05] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          title={atLimit ? "Maximum 6 active goals" : "New goal"}
+        >
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <path d="M7 1v12M1 7h12" strokeLinecap="round" />
+          </svg>
+        </button>
+      </div>
+
       {goals.map((goal) => (
         <GoalCard
           key={goal.id}
@@ -62,8 +91,13 @@ const GoalList = forwardRef<GoalListHandle, GoalListProps>(function GoalList({ o
           onCheckIn={
             goal.type === "challenge" ? () => handleCheckIn(goal.id) : undefined
           }
+          onDelete={() => handleDelete(goal.id)}
         />
       ))}
+
+      {showForm && (
+        <GoalForm onClose={() => setShowForm(false)} onCreated={handleCreated} />
+      )}
     </div>
   );
 });

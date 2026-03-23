@@ -1,14 +1,15 @@
 "use client";
 
-import { useRef, useCallback, useState } from "react";
+import { useRef, useCallback, useState, useEffect } from "react";
 import { format } from "date-fns";
 import GoalList from "@/components/goals/GoalList";
 import DailyView from "@/components/daily/DailyView";
 import WeeklySummaryBanner from "@/components/summary/WeeklySummaryBanner";
 
 export default function Home() {
-  const [date, setDate] = useState(() => new Date());
-  const dateStr = format(date, "yyyy-MM-dd");
+  const [date, setDate] = useState<Date | null>(null);
+
+  useEffect(() => { setDate(new Date()); }, []);
 
   const goalListRef = useRef<{ refresh: () => void }>(null);
   const summaryRef = useRef<{ refresh: () => void }>(null);
@@ -21,6 +22,10 @@ export default function Home() {
     goalListRef.current?.refresh();
     summaryRef.current?.refresh();
   }, []);
+
+  if (!date) return null;
+
+  const dateStr = format(date, "yyyy-MM-dd");
 
   return (
     <div className="flex flex-col h-screen">

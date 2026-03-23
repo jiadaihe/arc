@@ -3,17 +3,26 @@ import { db } from "../index";
 import { challengeCheckins } from "../schema";
 import type { ChallengeCheckin, NewChallengeCheckin } from "@/lib/types";
 
-export function getCheckinsByGoalId(goalId: string): ChallengeCheckin[] {
+export function getCheckinsByGoalId(
+  goalId: string,
+  userId: string
+): ChallengeCheckin[] {
   return db
     .select()
     .from(challengeCheckins)
-    .where(eq(challengeCheckins.goalId, goalId))
+    .where(
+      and(
+        eq(challengeCheckins.goalId, goalId),
+        eq(challengeCheckins.userId, userId)
+      )
+    )
     .all();
 }
 
 export function getCheckinByGoalAndDate(
   goalId: string,
-  date: string
+  date: string,
+  userId: string
 ): ChallengeCheckin | undefined {
   return db
     .select()
@@ -21,7 +30,8 @@ export function getCheckinByGoalAndDate(
     .where(
       and(
         eq(challengeCheckins.goalId, goalId),
-        eq(challengeCheckins.date, date)
+        eq(challengeCheckins.date, date),
+        eq(challengeCheckins.userId, userId)
       )
     )
     .get();

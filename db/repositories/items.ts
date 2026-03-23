@@ -3,26 +3,45 @@ import { db } from "../index";
 import { items } from "../schema";
 import type { Item, NewItem } from "@/lib/types";
 
-export function getItemsByDate(date: string): Item[] {
-  return db.select().from(items).where(eq(items.date, date)).all();
+export function getItemsByDate(date: string, userId: string): Item[] {
+  return db
+    .select()
+    .from(items)
+    .where(and(eq(items.date, date), eq(items.userId, userId)))
+    .all();
 }
 
-export function getItemById(id: string): Item | undefined {
-  return db.select().from(items).where(eq(items.id, id)).get();
+export function getItemById(id: string, userId: string): Item | undefined {
+  return db
+    .select()
+    .from(items)
+    .where(and(eq(items.id, id), eq(items.userId, userId)))
+    .get();
 }
 
-export function getItemsByGoalId(goalId: string): Item[] {
-  return db.select().from(items).where(eq(items.goalId, goalId)).all();
+export function getItemsByGoalId(goalId: string, userId: string): Item[] {
+  return db
+    .select()
+    .from(items)
+    .where(and(eq(items.goalId, goalId), eq(items.userId, userId)))
+    .all();
 }
 
 export function getItemsByDateRange(
   startDate: string,
-  endDate: string
+  endDate: string,
+  userId: string
 ): Item[] {
   return db
     .select()
     .from(items)
-    .where(and(gte(items.date, startDate), lte(items.date, endDate)))
+    .where(
+      and(
+        gte(items.date, startDate),
+        lte(items.date, endDate),
+        eq(items.userId, userId)
+      )
+    )
     .all();
 }
 
@@ -33,12 +52,22 @@ export function createItem(item: NewItem): Item {
 
 export function updateItem(
   id: string,
-  data: Partial<Omit<Item, "id" | "createdAt">>
+  userId: string,
+  data: Partial<Omit<Item, "id" | "userId" | "createdAt">>
 ): Item | undefined {
-  db.update(items).set(data).where(eq(items.id, id)).run();
-  return db.select().from(items).where(eq(items.id, id)).get();
+  db.update(items)
+    .set(data)
+    .where(and(eq(items.id, id), eq(items.userId, userId)))
+    .run();
+  return db
+    .select()
+    .from(items)
+    .where(and(eq(items.id, id), eq(items.userId, userId)))
+    .get();
 }
 
-export function deleteItem(id: string): void {
-  db.delete(items).where(eq(items.id, id)).run();
+export function deleteItem(id: string, userId: string): void {
+  db.delete(items)
+    .where(and(eq(items.id, id), eq(items.userId, userId)))
+    .run();
 }

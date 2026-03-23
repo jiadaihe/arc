@@ -1,14 +1,22 @@
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { db } from "../index";
 import { goals } from "../schema";
 import type { Goal, NewGoal } from "@/lib/types";
 
-export function getAllActiveGoals(): Goal[] {
-  return db.select().from(goals).where(eq(goals.status, "active")).all();
+export function getAllActiveGoals(userId: string): Goal[] {
+  return db
+    .select()
+    .from(goals)
+    .where(and(eq(goals.status, "active"), eq(goals.userId, userId)))
+    .all();
 }
 
-export function getGoalById(id: string): Goal | undefined {
-  return db.select().from(goals).where(eq(goals.id, id)).get();
+export function getGoalById(id: string, userId: string): Goal | undefined {
+  return db
+    .select()
+    .from(goals)
+    .where(and(eq(goals.id, id), eq(goals.userId, userId)))
+    .get();
 }
 
 export function createGoal(goal: NewGoal): Goal {
@@ -18,17 +26,25 @@ export function createGoal(goal: NewGoal): Goal {
 
 export function updateGoal(
   id: string,
-  data: Partial<Omit<Goal, "id" | "createdAt">>
+  userId: string,
+  data: Partial<Omit<Goal, "id" | "userId" | "createdAt">>
 ): Goal | undefined {
-  db.update(goals).set(data).where(eq(goals.id, id)).run();
-  return db.select().from(goals).where(eq(goals.id, id)).get();
+  db.update(goals)
+    .set(data)
+    .where(and(eq(goals.id, id), eq(goals.userId, userId)))
+    .run();
+  return db
+    .select()
+    .from(goals)
+    .where(and(eq(goals.id, id), eq(goals.userId, userId)))
+    .get();
 }
 
-export function countActiveGoals(): number {
+export function countActiveGoals(userId: string): number {
   const result = db
     .select()
     .from(goals)
-    .where(eq(goals.status, "active"))
+    .where(and(eq(goals.status, "active"), eq(goals.userId, userId)))
     .all();
   return result.length;
 }

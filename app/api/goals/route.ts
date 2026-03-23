@@ -5,12 +5,16 @@ import * as itemsRepo from "@/db/repositories/items";
 import * as checkinsRepo from "@/db/repositories/checkins";
 import { MAX_ACTIVE_GOALS } from "@/lib/constants";
 import { newId, nowISO } from "@/lib/utils";
+import { requireSession } from "@/lib/auth-session";
 import type { Goal, GoalHealthState, GoalWithHealth } from "@/lib/types";
 
-export function computeHealthState(goal: Goal): GoalHealthState {
+export function computeHealthState(
+  goal: Goal,
+  userId: string
+): GoalHealthState {
   const now = new Date();
-  const items = itemsRepo.getItemsByGoalId(goal.id);
-  const checkins = checkinsRepo.getCheckinsByGoalId(goal.id);
+  const items = itemsRepo.getItemsByGoalId(goal.id, userId);
+  const checkins = checkinsRepo.getCheckinsByGoalId(goal.id, userId);
 
   let latestActivity: Date | null = null;
 
@@ -32,37 +36,60 @@ export function computeHealthState(goal: Goal): GoalHealthState {
   return "blinking";
 }
 
-function withHealth(goal: Goal): GoalWithHealth {
-  return { ...goal, healthState: computeHealthState(goal) };
+function withHealth(goal: Goal, userId: string): GoalWithHealth {
+  return { ...goal, healthState: computeHealthState(goal, userId) };
 }
 
 export async function GET() {
-  const goals = goalsRepo.getAllActiveGoals();
-  return NextResponse.json(goals.map(withHealth));
+  const session = await requireSession();
+  const userId = session.user.id;
+  const goals = goalsRepo.getAllActiveGoals(userId);
+  return NextResponse.json(goals.map((g) => withHealth(g, userId)));
 }
 
 export async function POST(request: Request) {
+  const session = await requireSession();
+  const userId = session.user.id;
   const body = await request.json();
-  const { title, color, type, startDate, targetDate, challengeFrequency, challengeDurationDays } = body;
+  const {
+    title,
+    color,
+    type,
+    startDate,
+    targetDate,
+    challengeFrequency,
+    challengeDurationDays,
+  } = body;
 
   if (!title || !color || !type || !startDate || !targetDate) {
-    return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Missing required fields" },
+      { status: 400 }
+    );
   }
 
-  const count = goalsRepo.countActiveGoals();
+  const count = goalsRepo.countActiveGoals(userId);
   if (count >= MAX_ACTIVE_GOALS) {
-    return NextResponse.json({ error: `Cannot have more than ${MAX_ACTIVE_GOALS} active goals` }, { status: 400 });
+    return NextResponse.json(
+      { error: `Cannot have more than ${MAX_ACTIVE_GOALS} active goals` },
+      { status: 400 }
+    );
   }
 
   const now = nowISO();
   const goal = goalsRepo.createGoal({
     id: newId(),
-    title, color, type, startDate, targetDate,
+    userId,
+    title,
+    color,
+    type,
+    startDate,
+    targetDate,
     challengeFrequency: challengeFrequency ?? null,
     challengeDurationDays: challengeDurationDays ?? null,
     status: "active",
     createdAt: now,
     updatedAt: now,
   });
-  return NextResponse.json(withHealth(goal), { status: 201 });
+  return NextResponse.json(withHealth(goal, userId), { status: 201 });
 }
