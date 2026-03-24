@@ -24,7 +24,7 @@ const GoalList = forwardRef<GoalListHandle, GoalListProps>(function GoalList({ o
     const data = await res.json();
     setGoals(data);
 
-    const challengeGoals = data.filter((g: GoalWithHealth) => g.type === "challenge");
+    const challengeGoals = data.filter((g: GoalWithHealth) => g.habitFrequency);
     const checkinMap: Record<string, ChallengeCheckin[]> = {};
     await Promise.all(
       challengeGoals.map(async (g: GoalWithHealth) => {
@@ -89,7 +89,7 @@ const GoalList = forwardRef<GoalListHandle, GoalListProps>(function GoalList({ o
           goal={goal}
           checkins={checkins[goal.id] || []}
           onCheckIn={
-            goal.type === "challenge" ? () => handleCheckIn(goal.id) : undefined
+            goal.habitFrequency ? () => handleCheckIn(goal.id) : undefined
           }
           onDelete={() => handleDelete(goal.id)}
         />

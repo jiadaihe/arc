@@ -49,7 +49,7 @@ const DailyView = forwardRef<DailyViewHandle, DailyViewProps>(function DailyView
   const timedItems = items.filter((i) => i.startTime);
   const checklistItems = items.filter((i) => !i.startTime);
 
-  const handleAdd = async (data: { title: string; date: string; startTime?: string; endTime?: string; goalId?: string | null }) => {
+  const handleAdd = async (data: { title: string; date: string; startTime?: string; endTime?: string; goalId?: string | null; assetId?: string | null }) => {
     await fetch("/api/items", {
       method: "POST",
       headers: { "Content-Type": "application/json" },

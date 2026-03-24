@@ -3,14 +3,14 @@
 import { differenceInDays, addDays, format, isSameDay } from "date-fns";
 import type { ChallengeCheckin } from "@/lib/types";
 
-interface ChallengeGridProps {
+interface HabitGridProps {
   startDate: string;
   targetDate: string;
   checkins: ChallengeCheckin[];
   color: string;
 }
 
-export default function ChallengeGrid({ startDate, targetDate, checkins, color }: ChallengeGridProps) {
+export default function HabitGrid({ startDate, targetDate, checkins, color }: HabitGridProps) {
   const start = new Date(startDate);
   const end = new Date(targetDate);
   const today = new Date();

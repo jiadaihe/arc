@@ -41,6 +41,7 @@ export async function POST(request: Request) {
     startTime: body.startTime ?? null,
     endTime: body.endTime ?? null,
     goalId: body.goalId ?? null,
+    assetId: body.assetId ?? null,
     completed: 0,
     createdAt: nowISO(),
   });

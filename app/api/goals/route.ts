@@ -54,14 +54,13 @@ export async function POST(request: Request) {
   const {
     title,
     color,
-    type,
     startDate,
     targetDate,
-    challengeFrequency,
-    challengeDurationDays,
+    habitFrequency,
+    habitDurationDays,
   } = body;
 
-  if (!title || !color || !type || !startDate || !targetDate) {
+  if (!title || !color || !startDate || !targetDate) {
     return NextResponse.json(
       { error: "Missing required fields" },
       { status: 400 }
@@ -82,11 +81,10 @@ export async function POST(request: Request) {
     userId,
     title,
     color,
-    type,
     startDate,
     targetDate,
-    challengeFrequency: challengeFrequency ?? null,
-    challengeDurationDays: challengeDurationDays ?? null,
+    habitFrequency: habitFrequency ?? null,
+    habitDurationDays: habitDurationDays ?? null,
     status: "active",
     createdAt: now,
     updatedAt: now,

@@ -15,6 +15,20 @@
       "when": 1774228198310,
       "tag": "0001_swift_young_avengers",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1774490000000,
+      "tag": "0002_goal_habit_refactor",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1774491000000,
+      "tag": "0003_asset_columns",
+      "breakpoints": true
     }
   ]
 }

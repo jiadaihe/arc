@@ -2,7 +2,7 @@
 
 import { differenceInDays } from "date-fns";
 import type { GoalWithHealth, ChallengeCheckin } from "@/lib/types";
-import ChallengeGrid from "./ChallengeGrid";
+import HabitGrid from "./HabitGrid";
 
 interface GoalCardProps {
   goal: GoalWithHealth;
@@ -69,10 +69,10 @@ export default function GoalCard({ goal, checkins, onCheckIn, onDelete }: GoalCa
         />
       </div>
 
-      {/* Challenge-specific: grid + check-in button */}
-      {goal.type === "challenge" && (
+      {/* Habit-specific: grid + check-in button */}
+      {goal.habitFrequency && (
         <div className="space-y-3">
-          <ChallengeGrid
+          <HabitGrid
             startDate={goal.startDate}
             targetDate={goal.targetDate}
             checkins={checkins}

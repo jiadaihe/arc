@@ -8,13 +8,12 @@ export const goals = sqliteTable("goals", {
     .references(() => user.id, { onDelete: "cascade" }),
   title: text("title").notNull(),
   color: text("color").notNull(),
-  type: text("type", { enum: ["milestone", "challenge"] }).notNull(),
   startDate: text("start_date").notNull(),
   targetDate: text("target_date").notNull(),
-  challengeFrequency: text("challenge_frequency", {
+  habitFrequency: text("habit_frequency", {
     enum: ["daily", "3x_per_week", "5x_per_week"],
   }),
-  challengeDurationDays: integer("challenge_duration_days"),
+  habitDurationDays: integer("habit_duration_days"),
   status: text("status", {
     enum: ["active", "completed", "archived"],
   })
@@ -35,6 +34,7 @@ export const items = sqliteTable("items", {
   endTime: text("end_time"),
   completed: integer("completed").notNull().default(0),
   goalId: text("goal_id").references(() => goals.id),
+  assetId: text("asset_id"),
   createdAt: text("created_at").notNull(),
 });
 

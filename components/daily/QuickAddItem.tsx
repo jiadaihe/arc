@@ -7,7 +7,7 @@ import GoalLinkSelector from "./GoalLinkSelector";
 interface QuickAddItemProps {
   date: string;
   goals: GoalWithHealth[];
-  onAdd: (data: { title: string; date: string; startTime?: string; endTime?: string; goalId?: string | null }) => void;
+  onAdd: (data: { title: string; date: string; startTime?: string; endTime?: string; goalId?: string | null; assetId?: string | null }) => void;
 }
 
 export default function QuickAddItem({ date, goals, onAdd }: QuickAddItemProps) {
@@ -17,14 +17,27 @@ export default function QuickAddItem({ date, goals, onAdd }: QuickAddItemProps) 
   const [endTime, setEndTime] = useState("");
   const [goalId, setGoalId] = useState<string | null>(null);
 
-  const submit = () => {
+  const submit = async () => {
     if (!title.trim()) return;
+    const trimmed = title.trim();
+
+    // Auto-match asset
+    let assetId: string | null = null;
+    try {
+      const res = await fetch(`/api/assets/match?title=${encodeURIComponent(trimmed)}`);
+      if (res.ok) {
+        const data = await res.json();
+        assetId = data.assetId;
+      }
+    } catch { /* ignore */ }
+
     onAdd({
-      title: title.trim(),
+      title: trimmed,
       date,
       startTime: showTime && startTime ? startTime : undefined,
       endTime: showTime && endTime ? endTime : undefined,
       goalId,
+      assetId,
     });
     setTitle("");
     setStartTime("");
@@ -41,7 +54,7 @@ export default function QuickAddItem({ date, goals, onAdd }: QuickAddItemProps) 
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
-          placeholder="Add an item…"
+          placeholder="Add an item..."
           className="flex-1 text-sm bg-transparent outline-none placeholder:text-[var(--muted)]"
         />
       </div>
@@ -68,7 +81,7 @@ export default function QuickAddItem({ date, goals, onAdd }: QuickAddItemProps) 
                 onChange={(e) => setStartTime(e.target.value)}
                 className="text-[11px] bg-transparent text-[var(--foreground)] outline-none"
               />
-              <span className="text-[11px] text-[var(--muted)]">–</span>
+              <span className="text-[11px] text-[var(--muted)]">-</span>
               <input
                 type="time"
                 value={endTime}

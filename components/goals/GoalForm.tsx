@@ -11,16 +11,15 @@ interface GoalFormProps {
 export default function GoalForm({ onClose, onCreated }: GoalFormProps) {
   const [title, setTitle] = useState("");
   const [color, setColor] = useState<string>(GOAL_COLORS[0]);
-  const [type, setType] = useState<"milestone" | "challenge">("milestone");
-  const [startDate, setStartDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [targetDate, setTargetDate] = useState("");
-  const [challengeFrequency, setChallengeFrequency] = useState<"daily" | "3x_per_week" | "5x_per_week">("daily");
-  const [challengeDurationDays, setChallengeDurationDays] = useState(30);
+  const [hasHabit, setHasHabit] = useState(false);
+  const [habitFrequency, setHabitFrequency] = useState<"daily" | "3x_per_week" | "5x_per_week">("daily");
+  const [habitDurationDays, setHabitDurationDays] = useState(30);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
   const submit = async () => {
-    if (!title.trim() || !startDate || !targetDate) {
+    if (!title.trim() || !targetDate) {
       setError("Please fill in all required fields.");
       return;
     }
@@ -32,11 +31,10 @@ export default function GoalForm({ onClose, onCreated }: GoalFormProps) {
       body: JSON.stringify({
         title: title.trim(),
         color,
-        type,
-        startDate,
+        startDate: new Date().toISOString().slice(0, 10),
         targetDate,
-        challengeFrequency: type === "challenge" ? challengeFrequency : null,
-        challengeDurationDays: type === "challenge" ? challengeDurationDays : null,
+        habitFrequency: hasHabit ? habitFrequency : null,
+        habitDurationDays: hasHabit ? habitDurationDays : null,
       }),
     });
     if (!res.ok) {
@@ -96,56 +94,48 @@ export default function GoalForm({ onClose, onCreated }: GoalFormProps) {
           </div>
         </div>
 
-        {/* Type */}
+        {/* Target date */}
         <div>
-          <label className="text-xs font-medium text-[var(--muted)] block mb-2">Type</label>
-          <div className="flex gap-2">
-            {(["milestone", "challenge"] as const).map((t) => (
-              <button
-                key={t}
-                onClick={() => setType(t)}
-                className={`flex-1 text-sm py-2 rounded-lg border transition-colors capitalize ${
-                  type === t
-                    ? "border-[var(--foreground)] text-[var(--foreground)]"
-                    : "border-[var(--border)] text-[var(--muted)]"
+          <label className="text-xs font-medium text-[var(--muted)] block mb-1">Target date</label>
+          <input
+            type="date"
+            value={targetDate}
+            onChange={(e) => setTargetDate(e.target.value)}
+            className="w-full text-sm bg-transparent border border-[var(--border)] rounded-lg px-3 py-2 outline-none focus:border-[var(--foreground)] transition-colors"
+          />
+        </div>
+
+        {/* Recurring practice toggle */}
+        <div>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <button
+              type="button"
+              role="switch"
+              aria-checked={hasHabit}
+              onClick={() => setHasHabit(!hasHabit)}
+              className={`relative w-9 h-5 rounded-full transition-colors ${
+                hasHabit ? "" : "bg-[var(--border)]"
+              }`}
+              style={hasHabit ? { backgroundColor: color } : undefined}
+            >
+              <span
+                className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
+                  hasHabit ? "translate-x-4" : ""
                 }`}
-              >
-                {t}
-              </button>
-            ))}
-          </div>
+              />
+            </button>
+            <span className="text-sm">Set a recurring practice?</span>
+          </label>
         </div>
 
-        {/* Dates */}
-        <div className="flex gap-3">
-          <div className="flex-1">
-            <label className="text-xs font-medium text-[var(--muted)] block mb-1">Start date</label>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="w-full text-sm bg-transparent border border-[var(--border)] rounded-lg px-3 py-2 outline-none focus:border-[var(--foreground)] transition-colors"
-            />
-          </div>
-          <div className="flex-1">
-            <label className="text-xs font-medium text-[var(--muted)] block mb-1">Target date</label>
-            <input
-              type="date"
-              value={targetDate}
-              onChange={(e) => setTargetDate(e.target.value)}
-              className="w-full text-sm bg-transparent border border-[var(--border)] rounded-lg px-3 py-2 outline-none focus:border-[var(--foreground)] transition-colors"
-            />
-          </div>
-        </div>
-
-        {/* Challenge-specific fields */}
-        {type === "challenge" && (
+        {/* Habit fields */}
+        {hasHabit && (
           <div className="flex gap-3">
             <div className="flex-1">
               <label className="text-xs font-medium text-[var(--muted)] block mb-1">Frequency</label>
               <select
-                value={challengeFrequency}
-                onChange={(e) => setChallengeFrequency(e.target.value as typeof challengeFrequency)}
+                value={habitFrequency}
+                onChange={(e) => setHabitFrequency(e.target.value as typeof habitFrequency)}
                 className="w-full text-sm bg-transparent border border-[var(--border)] rounded-lg px-3 py-2 outline-none focus:border-[var(--foreground)] transition-colors"
               >
                 <option value="daily">Daily</option>
@@ -158,8 +148,8 @@ export default function GoalForm({ onClose, onCreated }: GoalFormProps) {
               <input
                 type="number"
                 min={1}
-                value={challengeDurationDays}
-                onChange={(e) => setChallengeDurationDays(Number(e.target.value))}
+                value={habitDurationDays}
+                onChange={(e) => setHabitDurationDays(Number(e.target.value))}
                 className="w-full text-sm bg-transparent border border-[var(--border)] rounded-lg px-3 py-2 outline-none focus:border-[var(--foreground)] transition-colors"
               />
             </div>
@@ -176,7 +166,7 @@ export default function GoalForm({ onClose, onCreated }: GoalFormProps) {
           className="w-full text-sm font-medium py-2.5 rounded-lg transition-colors disabled:opacity-50"
           style={{ backgroundColor: color, color: "white" }}
         >
-          {submitting ? "Creating…" : "Create Goal"}
+          {submitting ? "Creating..." : "Create Goal"}
         </button>
       </div>
     </div>

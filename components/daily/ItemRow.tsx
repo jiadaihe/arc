@@ -2,7 +2,9 @@
 
 import { useState, useRef, useEffect } from "react";
 import type { Item, GoalWithHealth } from "@/lib/types";
+import { getAssetFilenameById } from "@/lib/assets";
 import GoalLinkSelector from "./GoalLinkSelector";
+import AssetPicker from "@/components/assets/AssetPicker";
 
 interface ItemRowProps {
   item: Item;
@@ -16,12 +18,11 @@ export default function ItemRow({ item, goals, goalColor, onUpdate, onDelete }: 
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(item.title);
   const [showGoalLink, setShowGoalLink] = useState(false);
+  const [showAssetPicker, setShowAssetPicker] = useState(false);
   const popoverRef = useRef<HTMLDivElement>(null);
 
-  // Sync title when item changes externally
   useEffect(() => { setTitle(item.title); }, [item.title]);
 
-  // Click outside to close popover
   useEffect(() => {
     if (!showGoalLink) return;
     const handler = (e: MouseEvent) => {
@@ -42,6 +43,8 @@ export default function ItemRow({ item, goals, goalColor, onUpdate, onDelete }: 
     }
   };
 
+  const assetFilename = item.assetId ? getAssetFilenameById(item.assetId) : null;
+
   return (
     <div className="group relative flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-black/[.03] transition-colors">
       {/* Checkbox */}
@@ -60,8 +63,26 @@ export default function ItemRow({ item, goals, goalColor, onUpdate, onDelete }: 
         ) : null}
       </button>
 
-      {/* Goal color dot */}
-      {goalColor && (
+      {/* Asset thumbnail */}
+      {assetFilename && (
+        <button
+          onClick={() => setShowAssetPicker(true)}
+          className="shrink-0 hover:scale-110 transition-transform"
+          title="Change thumbnail"
+        >
+          <img
+            src={`/assets/${assetFilename}`}
+            alt=""
+            width={18}
+            height={18}
+            draggable={false}
+            style={{ filter: !goalColor ? "grayscale(100%) opacity(0.5)" : undefined }}
+          />
+        </button>
+      )}
+
+      {/* Goal color dot (only if no asset) */}
+      {!assetFilename && goalColor && (
         <div
           className="w-2 h-2 rounded-full shrink-0"
           style={{ backgroundColor: goalColor }}
@@ -93,7 +114,7 @@ export default function ItemRow({ item, goals, goalColor, onUpdate, onDelete }: 
       {/* Time badge */}
       {item.startTime && (
         <span className="text-[11px] text-[var(--muted)] tabular-nums shrink-0">
-          {item.startTime}{item.endTime ? `–${item.endTime}` : ""}
+          {item.startTime}{item.endTime ? `\u2013${item.endTime}` : ""}
         </span>
       )}
 
@@ -135,6 +156,15 @@ export default function ItemRow({ item, goals, goalColor, onUpdate, onDelete }: 
             }}
           />
         </div>
+      )}
+
+      {/* Asset picker modal */}
+      {showAssetPicker && (
+        <AssetPicker
+          selectedAssetId={item.assetId}
+          onSelect={(assetId) => onUpdate(item.id, { assetId })}
+          onClose={() => setShowAssetPicker(false)}
+        />
       )}
     </div>
   );
