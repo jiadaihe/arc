@@ -2,6 +2,7 @@
 
 import { differenceInDays } from "date-fns";
 import type { GoalWithHealth, ChallengeCheckin } from "@/lib/types";
+import { getAssetFilenameById } from "@/lib/assets";
 import HabitGrid from "./HabitGrid";
 
 interface GoalCardProps {
@@ -28,6 +29,7 @@ export default function GoalCard({ goal, checkins, onCheckIn, onDelete }: GoalCa
 
   const todayStr = today.toISOString().slice(0, 10);
   const checkedInToday = checkins.some((c) => c.date === todayStr);
+  const assetFilename = goal.assetId ? getAssetFilenameById(goal.assetId) : null;
 
   return (
     <div
@@ -35,10 +37,21 @@ export default function GoalCard({ goal, checkins, onCheckIn, onDelete }: GoalCa
     >
       {/* Header */}
       <div className="flex items-start gap-3 mb-3">
-        <div
-          className="w-3 h-3 rounded-full mt-1 shrink-0"
-          style={{ backgroundColor: goal.color }}
-        />
+        {assetFilename ? (
+          <img
+            src={`/assets/${assetFilename}`}
+            alt=""
+            width={16}
+            height={16}
+            className="shrink-0 mt-0.5"
+            draggable={false}
+          />
+        ) : (
+          <div
+            className="w-3 h-3 rounded-full mt-1 shrink-0"
+            style={{ backgroundColor: goal.color }}
+          />
+        )}
         <div className="flex-1 min-w-0">
           <h3 className="text-sm font-medium leading-tight truncate">{goal.title}</h3>
           <p className="text-xs text-[var(--muted)] mt-0.5">

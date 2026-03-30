@@ -1,6 +1,8 @@
 "use client";
 
 import type { Item } from "@/lib/types";
+import { ASSETS } from "@/lib/assets";
+import { matchAssetByKeyword } from "@/lib/asset-matcher";
 import AssetThumbnail from "./AssetThumbnail";
 
 interface CalendarCellProps {
@@ -8,7 +10,6 @@ interface CalendarCellProps {
   items: Item[];
   isToday: boolean;
   isCurrentMonth: boolean;
-  goalColors: Record<string, string>;
   onNavigate: (date: string) => void;
 }
 
@@ -19,27 +20,33 @@ export default function CalendarCell({
   items,
   isToday,
   isCurrentMonth,
-  goalColors,
   onNavigate,
 }: CalendarCellProps) {
-  const itemsWithAsset = items.filter((i) => i.assetId);
-  const shown = itemsWithAsset.slice(0, MAX_THUMBNAILS);
-  const overflow = itemsWithAsset.length - MAX_THUMBNAILS;
+  const unlinkedItems = items.filter((item) => !item.goalId);
+
+  const itemsWithResolvedAsset = unlinkedItems
+    .map((item) => ({
+      item,
+      assetId: item.assetId ?? matchAssetByKeyword(item.title, ASSETS)?.id ?? null,
+    }))
+    .filter((entry): entry is { item: Item; assetId: string } => Boolean(entry.assetId));
+  const thumbnails = itemsWithResolvedAsset.map(({ item, assetId }) => ({ key: `item-${item.id}`, assetId }));
+  const shown = thumbnails.slice(0, MAX_THUMBNAILS);
+  const overflow = thumbnails.length - MAX_THUMBNAILS;
 
   return (
     <button
       onClick={() => onNavigate(date)}
-      className={`min-h-[60px] p-1 rounded-lg text-left transition-colors hover:bg-black/[.04] ${
+      className={`block w-full h-full min-h-[72px] px-1 pb-1 pt-5 rounded-none text-left transition-colors hover:bg-black/[.04] ${
         isToday ? "ring-1 ring-[var(--foreground)] ring-inset" : ""
       } ${isCurrentMonth ? "" : "opacity-30"}`}
     >
       <div className="flex flex-wrap gap-0.5 items-start justify-start">
-        {shown.map((item) => (
+        {shown.map(({ key, assetId }) => (
           <AssetThumbnail
-            key={item.id}
-            assetId={item.assetId!}
+            key={key}
+            assetId={assetId}
             size={18}
-            muted={!item.goalId}
           />
         ))}
         {overflow > 0 && (

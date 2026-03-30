@@ -27,7 +27,7 @@ export default function AssetThumbnail({
       className={className}
       draggable={false}
       style={{
-        filter: muted ? "grayscale(100%) opacity(0.5)" : undefined,
+        // filter: muted ? "grayscale(100%) opacity(0.5)" : undefined,
         width: size,
         height: size,
       }}

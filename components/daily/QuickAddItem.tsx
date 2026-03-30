@@ -21,23 +21,12 @@ export default function QuickAddItem({ date, goals, onAdd }: QuickAddItemProps) 
     if (!title.trim()) return;
     const trimmed = title.trim();
 
-    // Auto-match asset
-    let assetId: string | null = null;
-    try {
-      const res = await fetch(`/api/assets/match?title=${encodeURIComponent(trimmed)}`);
-      if (res.ok) {
-        const data = await res.json();
-        assetId = data.assetId;
-      }
-    } catch { /* ignore */ }
-
     onAdd({
       title: trimmed,
       date,
       startTime: showTime && startTime ? startTime : undefined,
       endTime: showTime && endTime ? endTime : undefined,
       goalId,
-      assetId,
     });
     setTitle("");
     setStartTime("");
