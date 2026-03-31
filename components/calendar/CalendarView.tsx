@@ -71,22 +71,27 @@ export default function CalendarView({ onNavigateToDay }: CalendarViewProps) {
   const totalDays = differenceInDays(calendarEnd, calendarStart) + 1;
   const totalWeeks = totalDays / 7;
 
-  const startStr = format(calendarStart, "yyyy-MM-dd");
-  const endStr = format(calendarEnd, "yyyy-MM-dd");
+  const loadMonth = useCallback(async (target: Date) => {
+    const ms = startOfMonth(target);
+    const me = endOfMonth(target);
+    const cs = startOfWeek(ms, { weekStartsOn: 1 });
+    const ce = endOfWeek(me, { weekStartsOn: 1 });
+    const startStr = format(cs, "yyyy-MM-dd");
+    const endStr = format(ce, "yyyy-MM-dd");
 
-  const fetchData = useCallback(async () => {
     const [itemsRes, goalsRes] = await Promise.all([
       fetch(`/api/items/range?start=${startStr}&end=${endStr}`),
       fetch("/api/goals"),
     ]);
     const [itemsData, goalsData] = await Promise.all([itemsRes.json(), goalsRes.json()]);
+    setMonth(target);
     setItems(itemsData);
     setGoals(goalsData);
-  }, [startStr, endStr]);
+  }, []);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    loadMonth(month);
+  }, []);
 
   // Items grouped by date
   const itemsByDate: Record<string, Item[]> = {};
@@ -112,6 +117,7 @@ export default function CalendarView({ onNavigateToDay }: CalendarViewProps) {
   for (let w = 0; w < totalWeeks; w++) {
     weeks.push(days.slice(w * 7, w * 7 + 7));
   }
+  console.log("weeks:", weeks);
 
   const handleNavigate = (dateStr: string) => {
     onNavigateToDay(new Date(dateStr + "T00:00:00"));
@@ -309,7 +315,7 @@ export default function CalendarView({ onNavigateToDay }: CalendarViewProps) {
       {/* Month header */}
       <div className="flex items-center justify-between mb-6">
         <button
-          onClick={() => setMonth(subMonths(month, 1))}
+          onClick={() => loadMonth(subMonths(month, 1))}
           className="p-2 rounded-lg hover:bg-black/[.04] text-[var(--muted)] transition-colors"
         >
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -320,7 +326,7 @@ export default function CalendarView({ onNavigateToDay }: CalendarViewProps) {
           {format(month, "MMMM yyyy")}
         </h1>
         <button
-          onClick={() => setMonth(addMonths(month, 1))}
+          onClick={() => loadMonth(addMonths(month, 1))}
           className="p-2 rounded-lg hover:bg-black/[.04] text-[var(--muted)] transition-colors"
         >
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
