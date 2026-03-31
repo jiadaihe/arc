@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import {
   format,
   startOfMonth,
@@ -12,13 +12,11 @@ import {
   addDays,
   isSameMonth,
   isToday,
-  isWithinInterval,
   differenceInDays,
 } from "date-fns";
-import type { Item, GoalWithHealth, ChallengeCheckin } from "@/lib/types";
-import { ASSETS } from "@/lib/assets";
+import type { Item, GoalWithHealth } from "@/lib/types";
+import { ASSETS, getAssetFilenameById } from "@/lib/assets";
 import { matchAssetByKeyword } from "@/lib/asset-matcher";
-import AssetThumbnail from "./AssetThumbnail";
 import CalendarCell from "./CalendarCell";
 
 interface CalendarViewProps {
@@ -26,12 +24,45 @@ interface CalendarViewProps {
 }
 
 const DAY_LABELS = ["M", "T", "W", "T", "F", "S", "S"];
+const MOVING_THUMBNAIL_SIZE = 18;
+const ANIMATION_SPEED = 0.6;
+const TRACK_Y_SPACING = 6;
+
+type RowSpan = { startX: number; endX: number; y: number; width: number };
+
+function getPointAlongRowSpans(
+  rowSpans: RowSpan[],
+  progress: number,
+  yOffset: number
+) {
+  if (rowSpans.length === 0) return { x: 0, y: 0 };
+
+  const clamped = Math.max(0, Math.min(1, progress));
+  const totalWidth = rowSpans.reduce((sum, span) => sum + span.width, 0);
+  let remaining = clamped * totalWidth;
+
+  for (let i = 0; i < rowSpans.length; i++) {
+    const span = rowSpans[i];
+    if (remaining <= span.width || i === rowSpans.length - 1) {
+      const t = span.width > 0 ? Math.max(0, Math.min(1, remaining / span.width)) : 0;
+      return {
+        x: span.startX + (span.endX - span.startX) * t,
+        y: span.y + yOffset,
+      };
+    }
+    remaining -= span.width;
+  }
+
+  const last = rowSpans[rowSpans.length - 1];
+  return { x: last.endX, y: last.y + yOffset };
+}
 
 export default function CalendarView({ onNavigateToDay }: CalendarViewProps) {
   const [month, setMonth] = useState(() => new Date());
   const [items, setItems] = useState<Item[]>([]);
   const [goals, setGoals] = useState<GoalWithHealth[]>([]);
-  const [checkins, setCheckins] = useState<Record<string, ChallengeCheckin[]>>({});
+  const gridRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const monthStart = startOfMonth(month);
   const monthEnd = endOfMonth(month);
@@ -48,20 +79,9 @@ export default function CalendarView({ onNavigateToDay }: CalendarViewProps) {
       fetch(`/api/items/range?start=${startStr}&end=${endStr}`),
       fetch("/api/goals"),
     ]);
-    const itemsData = await itemsRes.json();
-    const goalsData = await goalsRes.json();
+    const [itemsData, goalsData] = await Promise.all([itemsRes.json(), goalsRes.json()]);
     setItems(itemsData);
     setGoals(goalsData);
-
-    const habitGoals = goalsData.filter((g: GoalWithHealth) => g.habitFrequency);
-    const checkinMap: Record<string, ChallengeCheckin[]> = {};
-    await Promise.all(
-      habitGoals.map(async (g: GoalWithHealth) => {
-        const res = await fetch(`/api/checkins?goalId=${g.id}`);
-        checkinMap[g.id] = await res.json();
-      })
-    );
-    setCheckins(checkinMap);
   }, [startStr, endStr]);
 
   useEffect(() => {
@@ -73,28 +93,6 @@ export default function CalendarView({ onNavigateToDay }: CalendarViewProps) {
   for (const item of items) {
     if (!itemsByDate[item.date]) itemsByDate[item.date] = [];
     itemsByDate[item.date].push(item);
-  }
-
-  // Goal color map + auto-matched asset per goal
-  const goalColors: Record<string, string> = {};
-  const goalAssetId: Record<string, string | null> = {};
-  for (const g of goals) {
-    goalColors[g.id] = g.color;
-    const match = matchAssetByKeyword(g.title, ASSETS);
-    goalAssetId[g.id] = match ? match.id : null;
-  }
-
-  // Pre-compute active dates per goal
-  const goalActiveDates: Record<string, Set<string>> = {};
-  for (const goal of goals) {
-    const dates = new Set<string>();
-    for (const item of items) {
-      if (item.goalId === goal.id) dates.add(item.date);
-    }
-    for (const checkin of (checkins[goal.id] || [])) {
-      dates.add(checkin.date);
-    }
-    goalActiveDates[goal.id] = dates;
   }
 
   // Build calendar days
@@ -118,6 +116,193 @@ export default function CalendarView({ onNavigateToDay }: CalendarViewProps) {
   const handleNavigate = (dateStr: string) => {
     onNavigateToDay(new Date(dateStr + "T00:00:00"));
   };
+
+  const animatedGoals = useMemo(() => {
+    return goals
+      .map((goal) => {
+        const resolvedAssetId = goal.assetId ?? matchAssetByKeyword(goal.title, ASSETS)?.id ?? null;
+        if (!resolvedAssetId) return null;
+        const filename = getAssetFilenameById(resolvedAssetId);
+        if (!filename) return null;
+
+        const dateRows = days
+          .map((day, dayIndex) => ({ dateStr: day.dateStr, row: Math.floor(dayIndex / 7) }))
+          .filter((day) => day.dateStr >= goal.startDate && day.dateStr <= goal.targetDate);
+
+        if (dateRows.length === 0) return null;
+
+        return {
+          id: goal.id,
+          color: goal.color,
+          src: `/assets/${filename}`,
+          dateRows,
+          durationMs: (3000 + Math.min(5000, dateRows.length * 120)) / ANIMATION_SPEED,
+        };
+      })
+      .filter((g): g is NonNullable<typeof g> => Boolean(g));
+  }, [goals, days]);
+
+  useEffect(() => {
+    const container = gridRef.current;
+    const canvas = canvasRef.current;
+    if (!container || !canvas || animatedGoals.length === 0) return;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    let rafId = 0;
+    let cancelled = false;
+    let startedAtMs = 0;
+    let tracks: {
+      id: string;
+      color: string;
+      image: HTMLImageElement;
+      rowSpans: RowSpan[];
+      durationMs: number;
+      phaseMs: number;
+      yOffset: number;
+    }[] = [];
+
+    const updateCanvasSize = () => {
+      const dpr = window.devicePixelRatio || 1;
+      const { width, height } = container.getBoundingClientRect();
+      canvas.width = Math.max(1, Math.floor(width * dpr));
+      canvas.height = Math.max(1, Math.floor(height * dpr));
+      canvas.style.width = `${Math.floor(width)}px`;
+      canvas.style.height = `${Math.floor(height)}px`;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    };
+
+    const updateTrackPoints = () => {
+      const containerRect = container.getBoundingClientRect();
+      tracks = tracks.map((track) => {
+        const goal = animatedGoals.find((g) => g.id === track.id);
+        if (!goal) return { ...track, rowSpans: [] };
+
+        const rowSpans: RowSpan[] = [];
+        let currentSpan: RowSpan | null = null;
+        let lastRow: number | null = null;
+
+        for (const dateCell of goal.dateRows) {
+          const el = container.querySelector<HTMLElement>(`[data-date="${dateCell.dateStr}"]`);
+          if (!el) continue;
+          const rect = el.getBoundingClientRect();
+          const point = {
+            x: rect.left - containerRect.left + rect.width / 2,
+            y: rect.top - containerRect.top + rect.height / 2,
+          };
+
+          if (lastRow !== null && dateCell.row !== lastRow && currentSpan) {
+            rowSpans.push(currentSpan);
+            currentSpan = null;
+          }
+
+          if (!currentSpan) {
+            currentSpan = {
+              startX: point.x,
+              endX: point.x,
+              y: point.y,
+              width: 1,
+            };
+          } else {
+            currentSpan.endX = point.x;
+            currentSpan.width = Math.max(1, Math.abs(currentSpan.endX - currentSpan.startX));
+          }
+
+          lastRow = dateCell.row;
+        }
+
+        if (currentSpan) {
+          rowSpans.push(currentSpan);
+        }
+
+        return { ...track, rowSpans };
+      });
+    };
+
+    const draw = (ts: number) => {
+      if (cancelled) return;
+      const { width, height } = container.getBoundingClientRect();
+      ctx.clearRect(0, 0, width, height);
+
+      for (const track of tracks) {
+        if (track.rowSpans.length === 0) continue;
+
+        if (!startedAtMs) startedAtMs = ts;
+        const elapsed = ts - startedAtMs;
+        const baseProgress = ((elapsed + track.phaseMs) % track.durationMs) / track.durationMs;
+        const p = getPointAlongRowSpans(
+          track.rowSpans,
+          baseProgress,
+          track.yOffset
+        );
+        ctx.drawImage(
+          track.image,
+          p.x - MOVING_THUMBNAIL_SIZE / 2,
+          p.y - MOVING_THUMBNAIL_SIZE / 2,
+          MOVING_THUMBNAIL_SIZE,
+          MOVING_THUMBNAIL_SIZE
+        );
+      }
+
+      rafId = window.requestAnimationFrame(draw);
+    };
+
+    const setup = async () => {
+      const loaded = await Promise.all(
+        animatedGoals.map(
+          (goal, idx) =>
+            new Promise<typeof tracks[number]>((resolve) => {
+              const totalGoals = animatedGoals.length;
+              const yOffset = (idx - (totalGoals - 1) / 2) * TRACK_Y_SPACING;
+              const image = new Image();
+              image.onload = () =>
+                resolve({
+                  id: goal.id,
+                  color: goal.color,
+                  image,
+                  rowSpans: [],
+                  durationMs: goal.durationMs,
+                  phaseMs: idx * 430,
+                  yOffset,
+                });
+              image.onerror = () =>
+                resolve({
+                  id: goal.id,
+                  color: goal.color,
+                  image,
+                  rowSpans: [],
+                  durationMs: goal.durationMs,
+                  phaseMs: idx * 430,
+                  yOffset,
+                });
+              image.src = goal.src;
+            })
+        )
+      );
+      if (cancelled) return;
+      tracks = loaded;
+      updateCanvasSize();
+      updateTrackPoints();
+      rafId = window.requestAnimationFrame(draw);
+    };
+
+    setup();
+    const resizeObserver = new ResizeObserver(() => {
+      updateCanvasSize();
+      updateTrackPoints();
+    });
+    resizeObserver.observe(container);
+    window.addEventListener("resize", updateTrackPoints);
+
+    return () => {
+      cancelled = true;
+      window.cancelAnimationFrame(rafId);
+      resizeObserver.disconnect();
+      window.removeEventListener("resize", updateTrackPoints);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    };
+  }, [animatedGoals]);
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -156,100 +341,23 @@ export default function CalendarView({ onNavigateToDay }: CalendarViewProps) {
         ))}
       </div>
 
-      {/* Calendar: week rows with integrated swim lanes */}
-      <div className="space-y-0">
+      {/* Calendar grid with animated canvas overlay */}
+      <div ref={gridRef} className="relative space-y-0">
+        <canvas
+          ref={canvasRef}
+          className="pointer-events-none absolute inset-0 z-20"
+          aria-hidden="true"
+        />
         {weeks.map((week, wi) => (
           <div key={wi}>
-            {/* Swim lane rows for this week */}
-            {goals.map((goal) => {
-              const goalStart = new Date(goal.startDate + "T00:00:00");
-              const goalEnd = new Date(goal.targetDate + "T00:00:00");
-              const activeDates = goalActiveDates[goal.id] || new Set();
-
-              const weekStart = week[0].date;
-              const weekEnd = week[6].date;
-              const overlaps = goalStart <= weekEnd && goalEnd >= weekStart;
-              if (!overlaps) return null;
-
-              // Find first and last in-range column indices (0-6)
-              let firstCol = -1;
-              let lastCol = -1;
-              for (let c = 0; c < 7; c++) {
-                const inRange = isWithinInterval(week[c].date, { start: goalStart, end: goalEnd });
-                if (inRange) {
-                  if (firstCol === -1) firstCol = c;
-                  lastCol = c;
-                }
-              }
-              if (firstCol === -1) return null;
-
-              // Track spans full width: each col is 1/7 = ~14.28%
-              const leftPct = (firstCol / 7) * 100;
-              const widthPct = ((lastCol - firstCol + 1) / 7) * 100;
-
-              // Find the latest activity day in this week for asset placement
-              let latestActivityCol = -1;
-              for (let c = lastCol; c >= firstCol; c--) {
-                if (activeDates.has(week[c].dateStr)) {
-                  latestActivityCol = c;
-                  break;
-                }
-              }
-
-              const assetId = goalAssetId[goal.id];
-
-              return (
-                <div key={goal.id} className="relative h-4">
-                  {assetId ? (
-                    // Repeat thumbnail across every in-range day
-                    <>
-                      {week.map((day, c) => {
-                        const inRange = c >= firstCol && c <= lastCol;
-                        if (!inRange) return null;
-                        const hasActivity = activeDates.has(day.dateStr);
-                        return (
-                          <div
-                            key={day.dateStr}
-                            className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2"
-                            style={{
-                              left: `${((c + 0.5) / 7) * 100}%`,
-                              opacity: hasActivity ? 1 : 0.15,
-                            }}
-                          >
-                            <AssetThumbnail assetId={assetId} size={14} />
-                          </div>
-                        );
-                      })}
-                    </>
-                  ) : (
-                    // No asset match — show faded color dots
-                    <>
-                      {week.map((day, c) => {
-                        const inRange = c >= firstCol && c <= lastCol;
-                        if (!inRange) return null;
-                        const hasActivity = activeDates.has(day.dateStr);
-                        return (
-                          <div
-                            key={day.dateStr}
-                            className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-2 h-2 rounded-full"
-                            style={{
-                              left: `${((c + 0.5) / 7) * 100}%`,
-                              backgroundColor: goal.color,
-                              opacity: hasActivity ? 0.8 : 0.15,
-                            }}
-                          />
-                        );
-                      })}
-                    </>
-                  )}
-                </div>
-              );
-            })}
-
             {/* Day cells for this week */}
-            <div className="grid grid-cols-7 gap-px">
+            <div className="grid grid-cols-7 gap-px bg-[var(--border)] p-px">
               {week.map((day) => (
-                <div key={day.dateStr} className="relative">
+                <div
+                  key={day.dateStr}
+                  data-date={day.dateStr}
+                  className="relative bg-[var(--background)]"
+                >
                   <span
                     className={`absolute top-0.5 right-1 text-[10px] tabular-nums z-10 ${
                       day.isCurrentMonth
@@ -264,7 +372,6 @@ export default function CalendarView({ onNavigateToDay }: CalendarViewProps) {
                     items={itemsByDate[day.dateStr] || []}
                     isToday={day.isToday}
                     isCurrentMonth={day.isCurrentMonth}
-                    goalColors={goalColors}
                     onNavigate={handleNavigate}
                   />
                 </div>
